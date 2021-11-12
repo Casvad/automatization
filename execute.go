@@ -1,15 +1,21 @@
 package main
 
 import (
+	"encoding/base64"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"log"
 	"os"
 	"os/exec"
-	"time"
 )
 
 func Execute() {
+
+	userData, err := os.ReadFile("script.sh")
+	if err != nil {
+		panic(err)
+	}
+	userDataStr := base64.StdEncoding.EncodeToString(userData)
 
 	awsSession := session.Must(session.NewSession())
 	ec2Instance := ec2.New(awsSession)
@@ -28,11 +34,7 @@ func Execute() {
 
 	sn := describeSubnets(ec2Instance)
 
-	reservation := runInstances(ec2Instance, keyPair.KeyName, sg.GroupId, sn.Subnets[0].SubnetId)
-	for _, instance := range reservation.Instances {
-		time.Sleep(20 * time.Second)
-		connectInstance(keyPair, instance, ec2Instance)
-	}
+	runInstances(ec2Instance, keyPair.KeyName, sg.GroupId, sn.Subnets[0].SubnetId, &userDataStr)
 }
 
 func connectInstance(keyPair *ec2.CreateKeyPairOutput, instance *ec2.Instance, ec2Instance *ec2.EC2) {
@@ -58,7 +60,7 @@ func connectInstance(keyPair *ec2.CreateKeyPairOutput, instance *ec2.Instance, e
 	}
 }
 
-func runInstances(ec2Instance *ec2.EC2, keyName, securityGroupId, subnetId *string) *ec2.Reservation {
+func runInstances(ec2Instance *ec2.EC2, keyName, securityGroupId, subnetId, userData *string) *ec2.Reservation {
 	ami := "ami-01cc34ab2709337aa"
 	instanceType := "t2.micro"
 	instances := int64(3)
@@ -71,7 +73,7 @@ func runInstances(ec2Instance *ec2.EC2, keyName, securityGroupId, subnetId *stri
 		MinCount:         &instances,
 		SecurityGroupIds: []*string{securityGroupId},
 		SubnetId:         subnetId,
-		UserData:         &ami,
+		UserData:         userData,
 	})
 
 	if err != nil {
@@ -133,7 +135,7 @@ func createKeyPair(ec2Instance *ec2.EC2) *ec2.CreateKeyPairOutput {
 
 func createSecurityGroup(ec2Instance *ec2.EC2, vpcId *string) *ec2.CreateSecurityGroupOutput {
 	description := "automated security group"
-	groupName := "automated-sg"
+	groupName := "auto-sg"
 
 	sg, err := ec2Instance.CreateSecurityGroup(&ec2.CreateSecurityGroupInput{
 		Description: &description,

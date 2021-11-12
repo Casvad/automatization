@@ -1,8 +1,9 @@
+#!/bin/bash
 sudo yum update -y
 sudo yum install git -y
-git clone https://github.com/Casvad/automatization
-sudo yum install java-1.8.0
-y
-cd automatization/java
-export PORT=8088
-java -cp "classes:/dependency/*" co.edu.escuelaing.lb.SparkWebServer
+sudo yum install java-1.8.0 -y
+sudo git clone https://github.com/Casvad/automatization
+export PORT=8080
+export API_URLS=http://localhost:8089
+
+java -cp "automatization/java/classes:automatization/java/dependency/*" co.edu.escuelaing.lb.SparkWebServer &
